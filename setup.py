@@ -17,7 +17,8 @@ setup(
         "python-dotenv",
         "websockets",
         "beautifulsoup4",
-        "litellm"
+        "litellm",
+        "tekton-core>=0.1.0"
     ],
     entry_points={
         'console_scripts': [

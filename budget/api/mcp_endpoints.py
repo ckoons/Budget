@@ -45,7 +45,7 @@ from budget.data.models import (
 from budget.adapters import apollo_adapter, rhetor_adapter, apollo_enhanced
 
 # Import core services
-from budget.core.engine import budget_engine
+from budget.core.engine import budget_engine, get_budget_engine
 from budget.core.allocation import allocation_manager
 
 # Import repositories
@@ -53,12 +53,53 @@ from budget.data.repository import (
     budget_repo, policy_repo, allocation_repo, usage_repo, alert_repo, pricing_repo
 )
 
+# Import FastMCP if available
+try:
+    from tekton.mcp.fastmcp import (
+        mcp_tool,
+        mcp_capability,
+        mcp_processor,
+        MCPClient
+    )
+    from tekton.mcp.fastmcp.schema import (
+        ToolSchema,
+        ProcessorSchema,
+        MessageSchema,
+        ResponseSchema,
+        MCPRequest,
+        MCPResponse,
+        MCPCapability,
+        MCPTool
+    )
+    from tekton.mcp.fastmcp.adapters import adapt_tool, adapt_processor
+    from tekton.mcp.fastmcp.exceptions import MCPProcessingError
+    from tekton.mcp.fastmcp.utils.endpoints import (
+        create_mcp_router,
+        add_standard_mcp_endpoints
+    )
+    fastmcp_available = True
+except ImportError:
+    fastmcp_available = False
 
-# Create MCP router
-mcp_router = APIRouter(prefix="/api/mcp", tags=["MCP Protocol"])
+# Import Budget MCP tools if FastMCP is available
+if fastmcp_available:
+    from budget.core.mcp import (
+        get_all_tools,
+        get_all_capabilities
+    )
+
+# Create MCP router using FastMCP if available
+if fastmcp_available:
+    mcp_router = create_mcp_router(
+        prefix="/api/mcp",
+        tags=["MCP Protocol"]
+    )
+else:
+    # Create traditional router
+    mcp_router = APIRouter(prefix="/api/mcp", tags=["MCP Protocol"])
 
 
-# --- MCP Message Models ---
+# --- MCP Message Models (for backward compatibility) ---
 
 class MCPMessage(BaseModel):
     """Base model for MCP messages."""
@@ -69,26 +110,41 @@ class MCPMessage(BaseModel):
     payload: Dict[str, Any] = Field(default_factory=dict)
 
 
-class MCPRequest(MCPMessage):
+class MCPRequest(BaseModel):
     """Model for MCP request messages."""
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sender: str
+    message_type: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+    payload: Dict[str, Any] = Field(default_factory=dict)
     reply_to: Optional[str] = None
     timeout: Optional[float] = None
 
 
-class MCPResponse(MCPMessage):
+class MCPResponse(BaseModel):
     """Model for MCP response messages."""
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sender: str
+    message_type: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+    payload: Dict[str, Any] = Field(default_factory=dict)
     request_id: str
     status: str
     error: Optional[str] = None
 
 
-class MCPEvent(MCPMessage):
+class MCPEvent(BaseModel):
     """Model for MCP event messages."""
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sender: str
+    message_type: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+    payload: Dict[str, Any] = Field(default_factory=dict)
     event_type: str
     severity: str = "info"
 
 
-# --- MCP API Endpoints ---
+# --- Legacy MCP API Endpoint (for backward compatibility) ---
 
 @mcp_router.post("/message", response_model=MCPResponse)
 @log_function(operation="process_mcp_message")
@@ -149,7 +205,7 @@ async def process_mcp_message(message: MCPRequest) -> MCPResponse:
         )
 
 
-# --- Message Handlers ---
+# --- Message Handlers (for backward compatibility) ---
 
 @log_function(operation="handle_allocate_tokens")
 async def handle_allocate_tokens(message: MCPRequest) -> MCPResponse:
@@ -809,3 +865,103 @@ async def publish_budget_event(
     debug_log.info("mcp_endpoints", f"Event {event_type}: {payload}")
     
     return event
+
+
+# --- FastMCP Integration ---
+
+# Define FastMCP handler functions
+async def get_capabilities_func(engine):
+    """Get Budget MCP capabilities."""
+    if not fastmcp_available:
+        return []
+        
+    return get_all_capabilities(engine)
+
+async def get_tools_func(engine):
+    """Get Budget MCP tools."""
+    if not fastmcp_available:
+        return []
+        
+    return get_all_tools(engine)
+
+async def process_request_func(engine, request):
+    """Process an MCP request."""
+    # Make sure the engine is initialized
+    if not isinstance(engine, dict) and getattr(engine, "is_initialized", None) and not engine.is_initialized:
+        await engine.initialize()
+    
+    try:
+        # Check if tool is supported
+        tool_name = request.tool
+        
+        # Define a mapping of tool names to handler functions
+        from budget.core.mcp.tools import (
+            allocate_budget, check_budget, record_usage, get_budget_status,
+            get_model_recommendations, route_with_budget_awareness, get_usage_analytics
+        )
+        
+        tool_handlers = {
+            # Budget Management
+            "AllocateBudget": allocate_budget,
+            "CheckBudget": check_budget,
+            "RecordUsage": record_usage,
+            "GetBudgetStatus": get_budget_status,
+            
+            # Model Recommendations
+            "GetModelRecommendations": get_model_recommendations,
+            "RouteWithBudgetAwareness": route_with_budget_awareness,
+            
+            # Analytics
+            "GetUsageAnalytics": get_usage_analytics
+        }
+        
+        # Check if tool is supported
+        if tool_name not in tool_handlers:
+            return MCPResponse(
+                status="error",
+                error=f"Unsupported tool: {tool_name}",
+                result=None
+            )
+            
+        # Call the appropriate handler
+        handler = tool_handlers[tool_name]
+        
+        # Set engine instance if needed
+        parameters = request.parameters or {}
+        if "engine_instance" not in parameters:
+            parameters["engine_instance"] = engine
+            
+        if "allocation_manager_instance" not in parameters:
+            parameters["allocation_manager_instance"] = allocation_manager
+            
+        # Execute handler
+        result = await handler(**parameters)
+        
+        return MCPResponse(
+            status="success",
+            result=result,
+            error=None
+        )
+    except Exception as e:
+        logger.error(f"Error processing MCP request: {e}")
+        return MCPResponse(
+            status="error",
+            error=f"Error processing request: {str(e)}",
+            result=None
+        )
+
+# Add standard MCP endpoints if FastMCP is available
+if fastmcp_available:
+    try:
+        # Add standard MCP endpoints to the router
+        add_standard_mcp_endpoints(
+            router=mcp_router,
+            get_capabilities_func=get_capabilities_func,
+            get_tools_func=get_tools_func,
+            process_request_func=process_request_func,
+            component_manager_dependency=get_budget_engine
+        )
+        
+        logger.info("Added FastMCP endpoints to Budget API")
+    except Exception as e:
+        logger.error(f"Error adding FastMCP endpoints: {e}")

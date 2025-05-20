@@ -174,6 +174,25 @@ async def startup_event():
     budget_engine = await get_budget_engine()
     add_websocket_routes(app, ws_manager, budget_engine)
     
+    # Initialize FastMCP if available
+    try:
+        from tekton.mcp.fastmcp import MCPClient
+        from tekton.mcp.fastmcp.utils.tooling import ToolRegistry
+        from budget.core.mcp import register_budget_tools, register_analytics_tools
+        
+        # Create tool registry
+        tool_registry = ToolRegistry()
+        
+        # Register budget tools with the registry
+        await register_budget_tools(budget_engine, tool_registry)
+        await register_analytics_tools(budget_engine, tool_registry)
+        
+        debug_log.info("budget_api", "Successfully registered FastMCP tools")
+    except ImportError:
+        debug_log.warn("budget_api", "FastMCP not available, continuing with legacy MCP")
+    except Exception as e:
+        debug_log.error("budget_api", f"Error registering FastMCP tools: {str(e)}")
+    
     debug_log.info("budget_api", "Budget API server initialized with WebSocket support")
 
 # On shutdown handlers
