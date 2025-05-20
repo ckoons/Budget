@@ -7,10 +7,12 @@ for budget management, allocation, and reporting.
 
 import os
 import sys
+import json
 import logging
 import asyncio
 from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException
+from typing import Dict, List, Any, Optional, Union
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -38,6 +40,8 @@ except ImportError:
 
 # Import API endpoints
 from budget.api.endpoints import router as budget_router
+from budget.api.mcp_endpoints import mcp_router
+from budget.api.assistant_endpoints import router as assistant_router
 from budget.api.models import ErrorResponse
 from budget.data.repository import db_manager
 
@@ -92,8 +96,10 @@ async def http_exception_handler(request, exc):
         content={"error": exc.detail}
     )
 
-# Include budget router
+# Include routers
 app.include_router(budget_router)
+app.include_router(mcp_router)
+app.include_router(assistant_router)
 
 # Health check endpoint
 @app.get("/health")
@@ -120,20 +126,14 @@ async def root():
         "status": "active"
     }
 
-# Standard health endpoint
-@app.get("/health")
-@log_function()
-async def health():
-    """
-    Standard health check endpoint following Tekton conventions.
-    """
-    debug_log.info("budget_api", "Health check endpoint called")
-    return {
-        "status": "healthy",
-        "component": "budget",
-        "version": "0.1.0",
-        "timestamp": str(datetime.now())
-    }
+# Import WebSocket manager and handlers
+from budget.api.websocket_server import (
+    ConnectionManager, add_websocket_routes,
+    notify_budget_update, notify_allocation_update, notify_alert, notify_price_update
+)
+
+# Create WebSocket connection manager
+ws_manager = ConnectionManager()
 
 # Global variable to store Hermes registration client
 hermes_client = None
@@ -169,7 +169,12 @@ async def startup_event():
     except Exception as e:
         debug_log.error("budget_api", f"Error registering with Hermes: {str(e)}")
     
-    debug_log.info("budget_api", "Budget API server initialized")
+    # Initialize WebSocket routes
+    from budget.core.engine import get_budget_engine
+    budget_engine = await get_budget_engine()
+    add_websocket_routes(app, ws_manager, budget_engine)
+    
+    debug_log.info("budget_api", "Budget API server initialized with WebSocket support")
 
 # On shutdown handlers
 @app.on_event("shutdown")
@@ -189,6 +194,10 @@ async def shutdown_event():
             debug_log.info("budget_api", "Successfully unregistered from Hermes")
         except Exception as e:
             debug_log.error("budget_api", f"Error unregistering from Hermes: {str(e)}")
+    
+    # Clean up WebSocket connections
+    ws_manager.cleanup()
+    debug_log.info("budget_api", "WebSocket connections cleaned up")
     
     # Close database connections
     db_manager.close()

@@ -59,6 +59,7 @@ class BudgetDBModel(Base):
     """Base class for Budget entity tables."""
     __abstract__ = True
     __tablename__ = None
+    # We should not use 'metadata' as a column name since it's reserved by SQLAlchemy
 
 
 class BudgetDB(BudgetDBModel):
@@ -72,7 +73,7 @@ class BudgetDB(BudgetDBModel):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     is_active = Column(Boolean, default=True)
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
     
     # Relationships
     policies = relationship("BudgetPolicyDB", back_populates="budget")
@@ -98,7 +99,7 @@ class BudgetPolicyDB(BudgetDBModel):
     start_date = Column(DateTime, default=datetime.now)
     end_date = Column(DateTime, nullable=True)
     enabled = Column(Boolean, default=True)
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
     
     # Relationships
     budget = relationship("BudgetDB", back_populates="policies")
@@ -135,7 +136,7 @@ class BudgetAllocationDB(BudgetDBModel):
     
     # Status
     is_active = Column(Boolean, default=True)
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
     
     # Relationships
     budget = relationship("BudgetDB", back_populates="allocations")
@@ -170,7 +171,7 @@ class UsageRecordDB(BudgetDBModel):
     user_id = Column(String, nullable=True)
     
     # Additional data
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
     
     # Relationships
     allocation = relationship("BudgetAllocationDB", back_populates="usage_records")
@@ -214,7 +215,7 @@ class ProviderPricingDB(BudgetDBModel):
     verified = Column(Boolean, default=False)
     effective_date = Column(DateTime, default=datetime.now)
     end_date = Column(DateTime, nullable=True)
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
     
     # Relationships
     price_updates = relationship("PriceUpdateRecordDB", 
@@ -235,7 +236,7 @@ class PriceUpdateRecordDB(BudgetDBModel):
     verification_status = Column(String, nullable=False)
     timestamp = Column(DateTime, default=datetime.now)
     changes = Column(Text, default="{}")  # JSON stored as text
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
     
     # Relationships
     new_pricing = relationship("ProviderPricingDB", 
@@ -261,7 +262,7 @@ class PriceSourceDB(BudgetDBModel):
     auth_required = Column(Boolean, default=False)
     auth_config = Column(Text, default="{}")  # JSON stored as text
     is_active = Column(Boolean, default=True)
-    metadata = Column(Text, default="{}")  # JSON stored as text
+    meta_data = Column(Text, default="{}")  # JSON stored as text
 
 
 class DatabaseManager:
@@ -409,7 +410,7 @@ class DatabaseRepository:
             
         # Convert JSON strings to dictionaries
         data = {c.name: getattr(db_model, c.name) for c in db_model.__table__.columns}
-        for field in ["metadata", "details", "changes", "auth_config"]:
+        for field in ["meta_data", "details", "changes", "auth_config"]:
             if field in data and isinstance(data[field], str):
                 try:
                     data[field] = json.loads(data[field])
@@ -423,7 +424,7 @@ class DatabaseRepository:
         data = pydantic_model.dict()
         
         # Convert dictionaries to JSON strings
-        for field in ["metadata", "details", "changes", "auth_config"]:
+        for field in ["meta_data", "details", "changes", "auth_config"]:
             if field in data and isinstance(data[field], dict):
                 data[field] = json.dumps(data[field])
                 
@@ -537,7 +538,7 @@ class DatabaseRepository:
                 data = model.dict(exclude={pk_field})
                 
                 # Convert dictionaries to JSON strings
-                for field in ["metadata", "details", "changes", "auth_config"]:
+                for field in ["meta_data", "details", "changes", "auth_config"]:
                     if field in data and isinstance(data[field], dict):
                         data[field] = json.dumps(data[field])
                         

@@ -141,7 +141,7 @@ class ProviderPricing(BaseModel):
     verified: bool = False
     effective_date: datetime = Field(default_factory=datetime.now)
     end_date: Optional[datetime] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
     @validator('end_date')
     def end_date_must_be_after_effective_date(cls, v, values):
@@ -175,9 +175,9 @@ class BudgetPolicy(BaseModel):
     start_date: datetime = Field(default_factory=datetime.now)
     end_date: Optional[datetime] = None
     enabled: bool = True
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def either_token_or_cost_limit(cls, values):
         """Ensure that either token_limit or cost_limit is provided."""
         token_limit = values.get('token_limit')
@@ -212,7 +212,7 @@ class Budget(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = True
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class BudgetAllocation(BaseModel):
@@ -252,7 +252,7 @@ class BudgetAllocation(BaseModel):
     
     # Status
     is_active: bool = True
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
     
     @validator('expiration_time', pre=True, always=True)
     def set_expiration_time(cls, v, values):
@@ -380,7 +380,7 @@ class UsageRecord(BaseModel):
     user_id: Optional[str] = None
     
     # Additional data
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Alert(BaseModel):
@@ -484,7 +484,7 @@ class PriceUpdateRecord(BaseModel):
     verification_status: str  # verified, unverified, conflict
     timestamp: datetime = Field(default_factory=datetime.now)
     changes: Dict[str, Any] = Field(default_factory=dict)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PriceSource(BaseModel):
@@ -508,4 +508,4 @@ class PriceSource(BaseModel):
     auth_required: bool = False
     auth_config: Dict[str, Any] = Field(default_factory=dict)
     is_active: bool = True
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)

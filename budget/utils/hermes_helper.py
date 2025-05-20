@@ -123,6 +123,75 @@ class HermesRegistrationClient:
                     "start_date": "string",
                     "end_date": "string"
                 }
+            },
+            {
+                "name": "model_guidance",
+                "description": "Provide model recommendations based on budget constraints",
+                "parameters": {
+                    "task_type": "string",
+                    "context_id": "string",
+                    "max_cost": "number"
+                }
+            }
+        ]
+        
+        # Define MCP capabilities
+        self.mcp_capabilities = [
+            {
+                "protocol": "mcp",
+                "version": "1.0",
+                "message_types": [
+                    {
+                        "type": "budget.allocate_tokens",
+                        "description": "Allocate tokens for a task",
+                        "response_type": "budget.allocation_response"
+                    },
+                    {
+                        "type": "budget.check_budget",
+                        "description": "Check if a request is within budget",
+                        "response_type": "budget.check_response"
+                    },
+                    {
+                        "type": "budget.record_usage",
+                        "description": "Record token usage",
+                        "response_type": "budget.usage_response"
+                    },
+                    {
+                        "type": "budget.get_budget_status",
+                        "description": "Get budget status",
+                        "response_type": "budget.status_response"
+                    },
+                    {
+                        "type": "budget.get_model_recommendations",
+                        "description": "Get model recommendations",
+                        "response_type": "budget.recommendations_response"
+                    },
+                    {
+                        "type": "budget.route_with_budget_awareness",
+                        "description": "Route a request based on budget constraints",
+                        "response_type": "budget.routing_response"
+                    },
+                    {
+                        "type": "budget.get_usage_analytics",
+                        "description": "Get usage analytics",
+                        "response_type": "budget.analytics_response"
+                    }
+                ],
+                "events": [
+                    {
+                        "type": "budget.limit_exceeded",
+                        "description": "Budget limit exceeded"
+                    },
+                    {
+                        "type": "budget.limit_approaching",
+                        "description": "Budget limit approaching"
+                    },
+                    {
+                        "type": "budget.price_update",
+                        "description": "Provider pricing update"
+                    }
+                ],
+                "endpoint": "/api/mcp/message"
             }
         ]
         
@@ -134,7 +203,14 @@ class HermesRegistrationClient:
             "description": "Budget management system for token and cost tracking",
             "version": component_version,
             "ui_enabled": True,
-            "ui_component": "budget-dashboard"
+            "ui_component": "budget-dashboard",
+            "supports_mcp": True,
+            "websocket_endpoints": [
+                {
+                    "path": "/ws/budget/updates",
+                    "description": "WebSocket endpoint for real-time budget updates"
+                }
+            ]
         }
         
         # Runtime variables
@@ -173,6 +249,7 @@ class HermesRegistrationClient:
                 "type": self.component_type,
                 "version": self.component_version,
                 "capabilities": self.capabilities,
+                "mcp_capabilities": self.mcp_capabilities,
                 "dependencies": self.dependencies,
                 "metadata": self.metadata
             }
@@ -242,6 +319,7 @@ class HermesRegistrationClient:
                 "type": self.component_type,
                 "version": self.component_version,
                 "capabilities": self.capabilities,
+                "mcp_capabilities": self.mcp_capabilities,
                 "dependencies": self.dependencies,
                 "metadata": self.metadata,
                 "endpoint": self.endpoint,
