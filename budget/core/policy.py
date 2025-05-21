@@ -462,3 +462,6 @@ class PolicyEnforcer:
 
 # Create singleton instance
 policy_enforcer = PolicyEnforcer()
+
+# Alias for backward compatibility
+policy_manager = policy_enforcer

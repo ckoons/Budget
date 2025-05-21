@@ -615,3 +615,6 @@ class UsageTracker:
 
 # Create singleton instance
 usage_tracker = UsageTracker()
+
+# Legacy alias for backward compatibility
+tracking_manager = usage_tracker
