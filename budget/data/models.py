@@ -10,7 +10,7 @@ import uuid
 from enum import Enum
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator, model_validator
 
 # Try to import debug_utils from shared if available
 try:
@@ -142,6 +142,13 @@ class ProviderPricing(BaseModel):
     effective_date: datetime = Field(default_factory=datetime.now)
     end_date: Optional[datetime] = None
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
     @validator('end_date')
     def end_date_must_be_after_effective_date(cls, v, values):
@@ -176,15 +183,20 @@ class BudgetPolicy(BaseModel):
     end_date: Optional[datetime] = None
     enabled: bool = True
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
-    @root_validator(skip_on_failure=True)
-    def either_token_or_cost_limit(cls, values):
+    @model_validator(mode='after')
+    def either_token_or_cost_limit(self) -> 'BudgetPolicy':
         """Ensure that either token_limit or cost_limit is provided."""
-        token_limit = values.get('token_limit')
-        cost_limit = values.get('cost_limit')
-        if token_limit is None and cost_limit is None:
+        if self.token_limit is None and self.cost_limit is None:
             raise ValueError('Either token_limit or cost_limit must be provided')
-        return values
+        return self
 
     @validator('end_date')
     def end_date_must_be_after_start_date(cls, v, values):
@@ -213,6 +225,13 @@ class Budget(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = True
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
 
 class BudgetAllocation(BaseModel):
@@ -253,6 +272,13 @@ class BudgetAllocation(BaseModel):
     # Status
     is_active: bool = True
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
     
     @validator('expiration_time', pre=True, always=True)
     def set_expiration_time(cls, v, values):
@@ -381,6 +407,13 @@ class UsageRecord(BaseModel):
     
     # Additional data
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
 
 class Alert(BaseModel):
@@ -403,6 +436,13 @@ class Alert(BaseModel):
     acknowledged: bool = False
     acknowledged_by: Optional[str] = None
     acknowledged_at: Optional[datetime] = None
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
 
 class BudgetSummary(BaseModel):
@@ -436,6 +476,13 @@ class BudgetSummary(BaseModel):
     active_allocations: int = 0
     start_time: datetime
     end_time: datetime
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
     
     @property
     def remaining_tokens(self) -> Optional[int]:
@@ -485,6 +532,13 @@ class PriceUpdateRecord(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     changes: Dict[str, Any] = Field(default_factory=dict)
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
 
 class PriceSource(BaseModel):
@@ -509,3 +563,10 @@ class PriceSource(BaseModel):
     auth_config: Dict[str, Any] = Field(default_factory=dict)
     is_active: bool = True
     meta_data: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Make SQLAlchemy happy by adding _sa_instance_state attribute
+    _sa_instance_state = None
+    
+    model_config = {
+        "arbitrary_types_allowed": True
+    }

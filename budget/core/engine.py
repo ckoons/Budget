@@ -792,3 +792,13 @@ class BudgetEngine:
 
 # Create singleton instance
 budget_engine = BudgetEngine()
+
+
+def get_budget_engine() -> BudgetEngine:
+    """
+    Get the singleton budget engine instance.
+    
+    Returns:
+        BudgetEngine: The budget engine instance
+    """
+    return budget_engine

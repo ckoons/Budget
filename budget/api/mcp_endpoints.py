@@ -88,6 +88,9 @@ if fastmcp_available:
         get_all_capabilities
     )
 
+# Initialize logger
+logger = logging.getLogger(__name__)
+
 # Create MCP router using FastMCP if available
 if fastmcp_available:
     mcp_router = create_mcp_router(
@@ -147,7 +150,7 @@ class MCPEvent(BaseModel):
 # --- Legacy MCP API Endpoint (for backward compatibility) ---
 
 @mcp_router.post("/message", response_model=MCPResponse)
-@log_function(operation="process_mcp_message")
+@log_function(level="INFO")
 async def process_mcp_message(message: MCPRequest) -> MCPResponse:
     """
     Process an MCP protocol message.
@@ -207,7 +210,7 @@ async def process_mcp_message(message: MCPRequest) -> MCPResponse:
 
 # --- Message Handlers (for backward compatibility) ---
 
-@log_function(operation="handle_allocate_tokens")
+@log_function(level="INFO")
 async def handle_allocate_tokens(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.allocate_tokens message.
@@ -287,7 +290,7 @@ async def handle_allocate_tokens(message: MCPRequest) -> MCPResponse:
         )
 
 
-@log_function(operation="handle_check_budget")
+@log_function(level="INFO")
 async def handle_check_budget(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.check_budget message.
@@ -373,7 +376,7 @@ async def handle_check_budget(message: MCPRequest) -> MCPResponse:
         )
 
 
-@log_function(operation="handle_record_usage")
+@log_function(level="INFO")
 async def handle_record_usage(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.record_usage message.
@@ -499,7 +502,7 @@ async def handle_record_usage(message: MCPRequest) -> MCPResponse:
         )
 
 
-@log_function(operation="handle_get_budget_status")
+@log_function(level="INFO")
 async def handle_get_budget_status(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.get_budget_status message.
@@ -613,7 +616,7 @@ async def handle_get_budget_status(message: MCPRequest) -> MCPResponse:
         )
 
 
-@log_function(operation="handle_get_model_recommendations")
+@log_function(level="INFO")
 async def handle_get_model_recommendations(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.get_model_recommendations message.
@@ -674,7 +677,7 @@ async def handle_get_model_recommendations(message: MCPRequest) -> MCPResponse:
         )
 
 
-@log_function(operation="handle_route_with_budget_awareness")
+@log_function(level="INFO")
 async def handle_route_with_budget_awareness(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.route_with_budget_awareness message.
@@ -754,7 +757,7 @@ async def handle_route_with_budget_awareness(message: MCPRequest) -> MCPResponse
         )
 
 
-@log_function(operation="handle_get_usage_analytics")
+@log_function(level="INFO")
 async def handle_get_usage_analytics(message: MCPRequest) -> MCPResponse:
     """
     Handle a budget.get_usage_analytics message.
@@ -827,7 +830,7 @@ async def handle_get_usage_analytics(message: MCPRequest) -> MCPResponse:
 
 # --- MCP Event Publishing ---
 
-@log_function(operation="publish_budget_event")
+@log_function(level="INFO")
 async def publish_budget_event(
     event_type: str,
     payload: Dict[str, Any],

@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator, model_validator
 
 # Try to import debug_utils from shared if available
 try:
@@ -43,8 +43,8 @@ class CreateBudgetRequest(BaseModel):
     owner: Optional[str] = Field(None, description="Budget owner")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "name": "Production Budget",
                 "description": "Production environment budget for Q2 2025",
@@ -55,6 +55,8 @@ class CreateBudgetRequest(BaseModel):
                 }
             }
         }
+    }
+
 
 class UpdateBudgetRequest(BaseModel):
     """Request model for updating a budget."""
@@ -64,14 +66,16 @@ class UpdateBudgetRequest(BaseModel):
     is_active: Optional[bool] = Field(None, description="Active status")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "name": "Production Budget (Updated)",
                 "description": "Updated production environment budget for Q2 2025",
                 "is_active": True
             }
         }
+    }
+
 
 class CreatePolicyRequest(BaseModel):
     """Request model for creating a budget policy."""
@@ -88,17 +92,15 @@ class CreatePolicyRequest(BaseModel):
     action_threshold: Optional[float] = Field(0.95, description="Action threshold (0.0-1.0)")
     enabled: Optional[bool] = Field(True, description="Whether policy is enabled")
     
-    @root_validator
-    def validate_limits(cls, values):
+    @model_validator(mode='after')
+    def validate_limits(self) -> 'BudgetRequest':
         """Validate that either token_limit or cost_limit is provided."""
-        token_limit = values.get('token_limit')
-        cost_limit = values.get('cost_limit')
-        if token_limit is None and cost_limit is None:
+        if self.token_limit is None and self.cost_limit is None:
             raise ValueError('Either token_limit or cost_limit must be provided')
-        return values
+        return self
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "budget_id": "budget-123e4567-e89b-12d3-a456-426614174000",
                 "type": "warn",
@@ -110,6 +112,7 @@ class CreatePolicyRequest(BaseModel):
                 "enabled": True
             }
         }
+    }
 
 class UpdatePolicyRequest(BaseModel):
     """Request model for updating a budget policy."""
@@ -120,8 +123,8 @@ class UpdatePolicyRequest(BaseModel):
     action_threshold: Optional[float] = Field(None, description="Action threshold (0.0-1.0)")
     enabled: Optional[bool] = Field(None, description="Whether policy is enabled")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "type": "hard_limit",
                 "token_limit": 150000,
@@ -129,6 +132,8 @@ class UpdatePolicyRequest(BaseModel):
                 "enabled": True
             }
         }
+    }
+
 
 class CreateAllocationRequest(BaseModel):
     """Request model for creating a budget allocation."""
@@ -145,8 +150,8 @@ class CreateAllocationRequest(BaseModel):
     expiration_time: Optional[datetime] = Field(None, description="Expiration time")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "budget_id": "budget-123e4567-e89b-12d3-a456-426614174000",
                 "context_id": "session-123",
@@ -163,6 +168,8 @@ class CreateAllocationRequest(BaseModel):
                 }
             }
         }
+    }
+
 
 class RecordUsageRequest(BaseModel):
     """Request model for recording usage."""
@@ -179,17 +186,15 @@ class RecordUsageRequest(BaseModel):
     user_id: Optional[str] = Field(None, description="User ID")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
     
-    @root_validator
-    def validate_allocation_reference(cls, values):
+    @model_validator(mode='after')
+    def validate_allocation_reference(self) -> 'BudgetAllocationRequest':
         """Validate that either context_id or allocation_id is provided."""
-        context_id = values.get('context_id')
-        allocation_id = values.get('allocation_id')
-        if context_id is None and allocation_id is None:
+        if self.context_id is None and self.allocation_id is None:
             raise ValueError('Either context_id or allocation_id must be provided')
-        return values
+        return self
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "context_id": "session-123",
                 "component": "athena",
@@ -204,6 +209,8 @@ class RecordUsageRequest(BaseModel):
                 }
             }
         }
+    }
+
 
 class GetUsageSummaryRequest(BaseModel):
     """Request model for getting usage summary."""
@@ -216,14 +223,17 @@ class GetUsageSummaryRequest(BaseModel):
     start_time: Optional[datetime] = Field(None, description="Custom start time")
     end_time: Optional[datetime] = Field(None, description="Custom end time")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "period": "daily",
                 "component": "athena",
                 "provider": "anthropic"
             }
         }
+    }
+
+
 
 class ModelRecommendationRequest(BaseModel):
     """Request model for getting model recommendations."""
@@ -232,8 +242,8 @@ class ModelRecommendationRequest(BaseModel):
     task_type: Optional[str] = Field("default", description="Task type")
     context_size: Optional[int] = Field(4000, description="Estimated context size in tokens")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "provider": "anthropic",
                 "model": "claude-3-opus-20240229",
@@ -241,19 +251,24 @@ class ModelRecommendationRequest(BaseModel):
                 "context_size": 5000
             }
         }
+    }
+
+
 
 class PriceRequest(BaseModel):
     """Request model for getting current price."""
     provider: str = Field(..., description="Provider name")
     model: str = Field(..., description="Model name")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "provider": "anthropic",
                 "model": "claude-3-opus-20240229"
             }
         }
+    }
+
 
 # Response Models
 
