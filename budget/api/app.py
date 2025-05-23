@@ -113,7 +113,6 @@ async def health_check():
 
 # Root endpoint
 @app.get("/")
-@log_function()
 async def root():
     """
     Root endpoint with basic information.
