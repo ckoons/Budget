@@ -21,6 +21,13 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
+# Add shared utils to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../shared/utils')))
+try:
+    from health_check import create_health_response
+except ImportError:
+    create_health_response = None
+
 # Try to import debug_utils from shared if available
 try:
     from shared.debug.debug_utils import debug_log, log_function
@@ -109,7 +116,32 @@ async def health_check():
     Health check endpoint to verify API is running.
     """
     debug_log.info("budget_api", "Health check endpoint called")
-    return {"status": "healthy", "component": "budget"}
+    
+    # Use standardized health response if available
+    if create_health_response:
+        return create_health_response(
+            component_name="budget",
+            port=8013,
+            version="0.1.0",
+            status="healthy",
+            registered=False,  # Will be updated when registration is implemented
+            details={
+                "services": ["budget_allocation", "cost_tracking", "assistant_service"]
+            }
+        )
+    else:
+        # Fallback to manual format
+        return {
+            "status": "healthy",
+            "version": "0.1.0",
+            "timestamp": datetime.now().isoformat(),
+            "component": "budget",
+            "port": 8013,
+            "registered_with_hermes": False,
+            "details": {
+                "services": ["budget_allocation", "cost_tracking", "assistant_service"]
+            }
+        }
 
 # Root endpoint
 @app.get("/")
