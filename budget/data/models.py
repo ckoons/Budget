@@ -10,7 +10,7 @@ import uuid
 from enum import Enum
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union
-from pydantic import BaseModel, Field, validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 # Try to import debug_utils from shared if available
 try:
@@ -146,14 +146,13 @@ class ProviderPricing(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @validator('end_date')
-    def end_date_must_be_after_effective_date(cls, v, values):
+    @field_validator('end_date')
+    @classmethod
+    def end_date_must_be_after_effective_date(cls, v, info):
         """Validate that end_date is after effective_date if both are provided."""
-        if v and 'effective_date' in values and v <= values['effective_date']:
+        if v and 'effective_date' in info.data and v <= info.data['effective_date']:
             raise ValueError('end_date must be after effective_date')
         return v
 
@@ -187,9 +186,7 @@ class BudgetPolicy(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def either_token_or_cost_limit(self) -> 'BudgetPolicy':
@@ -198,10 +195,11 @@ class BudgetPolicy(BaseModel):
             raise ValueError('Either token_limit or cost_limit must be provided')
         return self
 
-    @validator('end_date')
-    def end_date_must_be_after_start_date(cls, v, values):
+    @field_validator('end_date')
+    @classmethod
+    def end_date_must_be_after_start_date(cls, v, info):
         """Validate that end_date is after start_date if both are provided."""
-        if v and 'start_date' in values and v <= values['start_date']:
+        if v and 'start_date' in info.data and v <= info.data['start_date']:
             raise ValueError('end_date must be after start_date')
         return v
 
@@ -229,9 +227,7 @@ class Budget(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class BudgetAllocation(BaseModel):
@@ -276,16 +272,15 @@ class BudgetAllocation(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     
-    @validator('expiration_time', pre=True, always=True)
-    def set_expiration_time(cls, v, values):
+    @field_validator('expiration_time', mode='before')
+    @classmethod
+    def set_expiration_time(cls, v, info):
         """Set default expiration time if not provided."""
-        if v is None and 'creation_time' in values:
+        if v is None and 'creation_time' in info.data:
             # Default expiration: 24 hours after creation
-            return values['creation_time'] + timedelta(hours=24)
+            return info.data['creation_time'] + timedelta(hours=24)
         return v
     
     @property
@@ -411,9 +406,7 @@ class UsageRecord(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Alert(BaseModel):
@@ -440,9 +433,7 @@ class Alert(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class BudgetSummary(BaseModel):
@@ -480,9 +471,7 @@ class BudgetSummary(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     
     @property
     def remaining_tokens(self) -> Optional[int]:
@@ -536,9 +525,7 @@ class PriceUpdateRecord(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class PriceSource(BaseModel):
@@ -567,6 +554,4 @@ class PriceSource(BaseModel):
     # Make SQLAlchemy happy by adding _sa_instance_state attribute
     _sa_instance_state = None
     
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=True)

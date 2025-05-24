@@ -25,8 +25,11 @@ if parent_dir not in sys.path:
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../shared/utils')))
 try:
     from health_check import create_health_response
-except ImportError:
+    from hermes_registration import HermesRegistration, heartbeat_loop
+except ImportError as e:
+    logging.warning(f"Could not import shared utils: {e}")
     create_health_response = None
+    HermesRegistration = None
 
 # Try to import debug_utils from shared if available
 try:
@@ -64,6 +67,11 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("budget_api")
+
+# Global state for Hermes registration
+is_registered_with_hermes = False
+hermes_registration = None
+heartbeat_task = None
 
 # Create FastAPI app with proper URL paths following Single Port Architecture
 app = FastAPI(
@@ -124,7 +132,7 @@ async def health_check():
             port=8013,
             version="0.1.0",
             status="healthy",
-            registered=False,  # Will be updated when registration is implemented
+            registered=is_registered_with_hermes,
             details={
                 "services": ["budget_allocation", "cost_tracking", "assistant_service"]
             }
@@ -137,7 +145,7 @@ async def health_check():
             "timestamp": datetime.now().isoformat(),
             "component": "budget",
             "port": 8013,
-            "registered_with_hermes": False,
+            "registered_with_hermes": is_registered_with_hermes,
             "details": {
                 "services": ["budget_allocation", "cost_tracking", "assistant_service"]
             }
@@ -176,13 +184,11 @@ async def startup_event():
     """
     Initialization tasks on application startup.
     """
+    global hermes_client, is_registered_with_hermes, hermes_registration, heartbeat_task
     debug_log.info("budget_api", "Initializing Budget API server")
     
     # Initialize database
     db_manager.initialize()
-    
-    # Register with Hermes service registry
-    global hermes_client
     
     # Construct the endpoint URL based on the port
     port = os.environ.get("BUDGET_PORT", "8013")
@@ -224,6 +230,34 @@ async def startup_event():
     except Exception as e:
         debug_log.error("budget_api", f"Error registering FastMCP tools: {str(e)}")
     
+    # Register with Hermes using standardized registration
+    if HermesRegistration:
+        hermes_registration = HermesRegistration()
+        is_registered_with_hermes = await hermes_registration.register_component(
+            component_name="budget",
+            port=8013,
+            version="0.1.0",
+            capabilities=[
+                "budget_allocation",
+                "cost_tracking",
+                "usage_monitoring",
+                "assistant_service",
+                "websocket_support"
+            ],
+            metadata={
+                "database": "enabled",
+                "assistant": "enabled",
+                "websocket": "enabled"
+            }
+        )
+        
+        # Start heartbeat task if registered
+        if is_registered_with_hermes:
+            heartbeat_task = asyncio.create_task(
+                heartbeat_loop(hermes_registration, "budget", interval=30)
+            )
+            debug_log.info("budget_api", "Started Hermes heartbeat task")
+    
     debug_log.info("budget_api", "Budget API server initialized with WebSocket support")
 
 # On shutdown handlers
@@ -233,10 +267,22 @@ async def shutdown_event():
     """
     Cleanup tasks on application shutdown.
     """
+    global hermes_client, heartbeat_task
     debug_log.info("budget_api", "Shutting down Budget API server")
     
-    # Unregister from Hermes service registry
-    global hermes_client
+    # Cancel heartbeat task
+    if heartbeat_task:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
+    
+    # Deregister from Hermes
+    if hermes_registration and is_registered_with_hermes:
+        await hermes_registration.deregister("budget")
+    
+    # Unregister from Hermes service registry (legacy)
     if hermes_client:
         debug_log.info("budget_api", "Unregistering from Hermes")
         try:
