@@ -208,7 +208,7 @@ async def startup_event():
     
     # Initialize WebSocket routes
     from budget.core.engine import get_budget_engine
-    budget_engine = await get_budget_engine()
+    budget_engine = get_budget_engine()
     add_websocket_routes(app, ws_manager, budget_engine)
     
     # Initialize FastMCP if available
