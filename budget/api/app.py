@@ -298,6 +298,9 @@ async def shutdown_event():
     # Close database connections
     db_manager.close()
     
+    # Allow socket to fully release on macOS
+    await asyncio.sleep(0.5)
+    
     debug_log.info("budget_api", "Budget API server shutdown complete")
 
 # Main function to run the API server
