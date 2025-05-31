@@ -274,7 +274,16 @@ class DatabaseManager:
     
     def __init__(self, connection_string=None):
         """Initialize the database manager."""
-        self.connection_string = connection_string or "sqlite:///budget.db"
+        if connection_string:
+            self.connection_string = connection_string
+        else:
+            # Store in Budget component directory
+            import os
+            from pathlib import Path
+            budget_dir = Path(__file__).parent.parent.parent.absolute()
+            db_path = os.path.join(budget_dir, "budget.db")
+            self.connection_string = f"sqlite:///{db_path}"
+
         self.engine = None
         self.session_factory = None
         self.Session = None
