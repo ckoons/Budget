@@ -1,43 +1,27 @@
 #!/bin/bash
+# Budget component - Launch Script
 
-# run_budget.sh - Script to run the Budget component of Tekton
-# This script starts the Budget API server and related services
+# Default port (can be overridden by environment variable)
+export BUDGET_PORT=${BUDGET_PORT:-8013}
 
-# Set environment variables
-export TEKTON_DEBUG=true
-export TEKTON_LOG_LEVEL=DEBUG
-
-# Determine the directory where this script is located
+# Ensure we're in the right directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd "$SCRIPT_DIR" || exit 1
 
-# Navigate to the script directory
-cd "$SCRIPT_DIR"
+# Add Tekton root to Python path
+TEKTON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+export PYTHONPATH="$SCRIPT_DIR:$TEKTON_ROOT:$PYTHONPATH"
 
-# Check if we're in a virtual environment, if not try to activate one
-if [[ -z "$VIRTUAL_ENV" ]]; then
-    if [[ -d "venv" ]]; then
-        echo "Activating virtual environment..."
-        source venv/bin/activate
-    elif [[ -d "../venv" ]]; then
-        echo "Activating parent virtual environment..."
-        source ../venv/bin/activate
-    else
-        echo "No virtual environment found. Running with system Python."
-    fi
+# Check if port is already in use
+if nc -z localhost $BUDGET_PORT 2>/dev/null; then
+    echo "Budget is already running on port $BUDGET_PORT"
+    exit 0
 fi
 
-# Check if required packages are installed
-if ! python -c "import fastapi" &> /dev/null; then
-    echo "Installing required packages..."
-    pip install -r requirements.txt
-fi
+echo "Starting Budget on port $BUDGET_PORT..."
 
-# Install package in development mode if not already installed
-if ! python -c "import budget" &> /dev/null; then
-    echo "Installing budget package in development mode..."
-    pip install -e .
-fi
-
-# Start the Budget API server
-echo "Starting Budget API server..."
-python -m budget.api.app
+# Start the Budget service using custom socket server for proper port reuse
+python -c "
+from shared.utils.socket_server import run_component_server
+run_component_server('budget', 'budget.api.app', 8013)
+"
