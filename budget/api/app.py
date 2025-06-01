@@ -21,11 +21,15 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
-# Add shared utils to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../shared/utils')))
+# Add Tekton root to path for shared imports
+tekton_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+if tekton_root not in sys.path:
+    sys.path.append(tekton_root)
+
+# Import shared utils
 try:
-    from health_check import create_health_response
-    from hermes_registration import HermesRegistration, heartbeat_loop
+    from shared.utils.health_check import create_health_response
+    from shared.utils.hermes_registration import HermesRegistration, heartbeat_loop
 except ImportError as e:
     logging.warning(f"Could not import shared utils: {e}")
     create_health_response = None
@@ -118,7 +122,6 @@ app.include_router(assistant_router)
 
 # Health check endpoint
 @app.get("/health")
-@log_function()
 async def health_check():
     """
     Health check endpoint to verify API is running.
@@ -179,7 +182,6 @@ hermes_client = None
 
 # On startup handlers
 @app.on_event("startup")
-@log_function()
 async def startup_event():
     """
     Initialization tasks on application startup.
@@ -262,7 +264,6 @@ async def startup_event():
 
 # On shutdown handlers
 @app.on_event("shutdown")
-@log_function()
 async def shutdown_event():
     """
     Cleanup tasks on application shutdown.
