@@ -32,6 +32,8 @@ from shared.utils.hermes_registration import HermesRegistration, heartbeat_loop
 from shared.utils.logging_setup import setup_component_logging
 from shared.utils.shutdown import component_lifespan
 from shared.utils.env_config import get_component_config
+from shared.utils.startup import component_startup, StartupMetrics
+from shared.utils.errors import StartupError
 
 # Try to import debug_utils from shared if available
 try:
@@ -67,7 +69,6 @@ logger = setup_component_logging("budget")
 is_registered_with_hermes = False
 hermes_registration = None
 heartbeat_task = None
-hermes_client = None
 
 # Import WebSocket manager and handlers
 from budget.api.websocket_server import (
@@ -81,27 +82,15 @@ ws_manager = ConnectionManager()
 # Define startup and cleanup functions for lifespan
 async def startup_tasks():
     """Initialize Budget services."""
-    global hermes_client, is_registered_with_hermes, hermes_registration, heartbeat_task
+    global is_registered_with_hermes, hermes_registration, heartbeat_task
     logger.info("Initializing Budget API server")
     
     # Initialize database
     db_manager.initialize()
     
-    # Construct the endpoint URL based on the port
-    port = os.environ.get("BUDGET_PORT", "8013")
-    hostname = os.environ.get("BUDGET_HOST", "localhost")
-    endpoint = f"http://{hostname}:{port}"
-    
-    logger.info(f"Registering with Hermes using endpoint: {endpoint}")
-    
-    try:
-        hermes_client = await register_budget_component(endpoint)
-        if hermes_client:
-            logger.info("Successfully registered with Hermes")
-        else:
-            logger.warning("Failed to register with Hermes, continuing startup")
-    except Exception as e:
-        logger.error(f"Error registering with Hermes: {str(e)}")
+    # Get configuration
+    config = get_component_config()
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT", 8013))
     
     # Initialize WebSocket routes
     from budget.core.engine import get_budget_engine
@@ -129,9 +118,10 @@ async def startup_tasks():
     
     # Register with Hermes using standardized registration
     hermes_registration = HermesRegistration()
+    logger.info(f"Attempting to register Budget with Hermes on port {port}")
     is_registered_with_hermes = await hermes_registration.register_component(
         component_name="budget",
-        port=8013,
+        port=port,
         version="0.1.0",
         capabilities=[
             "budget_allocation",
@@ -158,7 +148,7 @@ async def startup_tasks():
 
 async def cleanup_tasks():
     """Cleanup Budget resources."""
-    global hermes_client, heartbeat_task
+    global heartbeat_task
     logger.info("Shutting down Budget API server")
     
     # Cancel heartbeat task
@@ -172,15 +162,7 @@ async def cleanup_tasks():
     # Deregister from Hermes
     if hermes_registration and is_registered_with_hermes:
         await hermes_registration.deregister("budget")
-    
-    # Unregister from Hermes service registry (legacy)
-    if hermes_client:
-        logger.info("Unregistering from Hermes")
-        try:
-            await hermes_client.close()
-            logger.info("Successfully unregistered from Hermes")
-        except Exception as e:
-            logger.error(f"Error unregistering from Hermes: {str(e)}")
+        logger.info("Deregistered from Hermes")
     
     # Clean up WebSocket connections
     ws_manager.cleanup()
