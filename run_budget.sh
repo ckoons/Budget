@@ -1,27 +1,80 @@
 #!/bin/bash
 # Budget component - Launch Script
 
-# Default port (can be overridden by environment variable)
-export BUDGET_PORT=${BUDGET_PORT:-8013}
+# ANSI color codes for terminal output
+BLUE="\033[94m"
+GREEN="\033[92m"
+YELLOW="\033[93m"
+RED="\033[91m"
+BOLD="\033[1m"
+RESET="\033[0m"
 
-# Ensure we're in the right directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd "$SCRIPT_DIR" || exit 1
+echo -e "${BLUE}${BOLD}Starting Budget Resource Management System...${RESET}"
 
-# Add Tekton root to Python path
-TEKTON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-export PYTHONPATH="$SCRIPT_DIR:$TEKTON_ROOT:$PYTHONPATH"
-
-# Check if port is already in use
-if nc -z localhost $BUDGET_PORT 2>/dev/null; then
-    echo "Budget is already running on port $BUDGET_PORT"
-    exit 0
+# Find Tekton root directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+if [[ "$SCRIPT_DIR" == *"/utils" ]]; then
+    # Script is running from a symlink in utils
+    TEKTON_ROOT=$(cd "$SCRIPT_DIR" && cd "$(readlink "${BASH_SOURCE[0]}" | xargs dirname | xargs dirname)" && pwd)
+else
+    # Script is running from Budget directory
+    TEKTON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
 
-echo "Starting Budget on port $BUDGET_PORT..."
+# Ensure we're in the correct directory
+cd "$SCRIPT_DIR"
 
-# Start the Budget service using custom socket server for proper port reuse
-python -c "
-from shared.utils.socket_server import run_component_server
-run_component_server('budget', 'budget.api.app', 8013)
-"
+# Set environment variables
+export PYTHONPATH="$SCRIPT_DIR:$TEKTON_ROOT:$PYTHONPATH"
+
+# Create log directories
+mkdir -p "$HOME/.tekton/logs"
+
+# Check if virtual environment exists
+if [ -d "venv" ]; then
+    source venv/bin/activate
+fi
+
+# Check if port is already in use
+if lsof -Pi :$BUDGET_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${RED}Port $BUDGET_PORT is already in use. Budget might already be running.${RESET}"
+    exit 1
+fi
+
+# Start the Budget service
+echo -e "${YELLOW}Starting Budget API server on port $BUDGET_PORT...${RESET}"
+python -m budget.api.app > "$HOME/.tekton/logs/budget.log" 2>&1 &
+BUDGET_PID=$!
+
+# Trap signals for graceful shutdown
+trap "kill $BUDGET_PID 2>/dev/null; exit" EXIT SIGINT SIGTERM
+
+# Wait for the server to start
+echo -e "${YELLOW}Waiting for Budget to start...${RESET}"
+for i in {1..30}; do
+    if curl -s http://localhost:$BUDGET_PORT/health >/dev/null 2>&1; then
+        echo -e "${GREEN}${BOLD}Budget started successfully!${RESET}"
+        echo -e "${GREEN}Service endpoints:${RESET}"
+        echo -e "  ${BLUE}Main API:${RESET} http://localhost:$BUDGET_PORT/api"
+        echo -e "  ${BLUE}Health:${RESET} http://localhost:$BUDGET_PORT/health"
+        echo -e "  ${BLUE}Token Tracking:${RESET} http://localhost:$BUDGET_PORT/api/tokens"
+        echo -e "  ${BLUE}Cost Analysis:${RESET} http://localhost:$BUDGET_PORT/api/cost"
+        echo -e "  ${BLUE}Model Selection:${RESET} http://localhost:$BUDGET_PORT/api/models"
+        break
+    fi
+    
+    # Check if the process is still running
+    if ! kill -0 $BUDGET_PID 2>/dev/null; then
+        echo -e "${RED}Budget process terminated unexpectedly${RESET}"
+        echo -e "${RED}Last 20 lines of log:${RESET}"
+        tail -20 "$HOME/.tekton/logs/budget.log"
+        exit 1
+    fi
+    
+    echo -n "."
+    sleep 1
+done
+
+# Keep the script running
+echo -e "${BLUE}Budget is running. Press Ctrl+C to stop.${RESET}"
+wait $BUDGET_PID
