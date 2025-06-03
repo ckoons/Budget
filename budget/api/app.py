@@ -258,20 +258,11 @@ async def root():
     }
 
 if __name__ == "__main__":
-    import uvicorn
+    from shared.utils.socket_server import run_component_server
     
-    # Get configuration
-    config = get_component_config()
-    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT", "8013"))
-    
-    # Configure uvicorn with socket reuse
-    uvicorn.run(
-        "budget.api.app:app",
-        host="0.0.0.0",
-        port=port,
-        reload=True,
-        # Enable socket reuse to prevent port binding issues
-        server_header=False,
-        access_log=False,
-        use_colors=True
+    run_component_server(
+        component_name="budget",
+        app_module="budget.api.app",
+        default_port=int(os.environ.get("BUDGET_PORT")),
+        reload=False
     )
