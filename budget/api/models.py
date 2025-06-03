@@ -9,7 +9,8 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field, validator, model_validator
+from pydantic import Field, field_validator, model_validator
+from tekton.models import TektonBaseModel
 
 # Try to import debug_utils from shared if available
 try:
@@ -36,7 +37,7 @@ from budget.data.models import (
 
 # Request Models
 
-class CreateBudgetRequest(BaseModel):
+class CreateBudgetRequest(TektonBaseModel):
     """Request model for creating a budget."""
     name: str = Field(..., description="Budget name")
     description: Optional[str] = Field(None, description="Budget description")
@@ -58,7 +59,7 @@ class CreateBudgetRequest(BaseModel):
     }
 
 
-class UpdateBudgetRequest(BaseModel):
+class UpdateBudgetRequest(TektonBaseModel):
     """Request model for updating a budget."""
     name: Optional[str] = Field(None, description="Budget name")
     description: Optional[str] = Field(None, description="Budget description")
@@ -77,7 +78,7 @@ class UpdateBudgetRequest(BaseModel):
     }
 
 
-class CreatePolicyRequest(BaseModel):
+class CreatePolicyRequest(TektonBaseModel):
     """Request model for creating a budget policy."""
     budget_id: Optional[str] = Field(None, description="Budget ID (optional)")
     type: str = Field(..., description="Policy type (ignore, warn, soft_limit, hard_limit)")
@@ -114,7 +115,7 @@ class CreatePolicyRequest(BaseModel):
         }
     }
 
-class UpdatePolicyRequest(BaseModel):
+class UpdatePolicyRequest(TektonBaseModel):
     """Request model for updating a budget policy."""
     type: Optional[str] = Field(None, description="Policy type (ignore, warn, soft_limit, hard_limit)")
     token_limit: Optional[int] = Field(None, description="Token limit")
@@ -135,7 +136,7 @@ class UpdatePolicyRequest(BaseModel):
     }
 
 
-class CreateAllocationRequest(BaseModel):
+class CreateAllocationRequest(TektonBaseModel):
     """Request model for creating a budget allocation."""
     budget_id: Optional[str] = Field(None, description="Budget ID (optional)")
     context_id: str = Field(..., description="Context ID")
@@ -171,7 +172,7 @@ class CreateAllocationRequest(BaseModel):
     }
 
 
-class RecordUsageRequest(BaseModel):
+class RecordUsageRequest(TektonBaseModel):
     """Request model for recording usage."""
     context_id: Optional[str] = Field(None, description="Context ID")
     allocation_id: Optional[str] = Field(None, description="Allocation ID")
@@ -212,7 +213,7 @@ class RecordUsageRequest(BaseModel):
     }
 
 
-class GetUsageSummaryRequest(BaseModel):
+class GetUsageSummaryRequest(TektonBaseModel):
     """Request model for getting usage summary."""
     period: str = Field(..., description="Budget period (hourly, daily, weekly, monthly)")
     budget_id: Optional[str] = Field(None, description="Budget ID")
@@ -235,7 +236,7 @@ class GetUsageSummaryRequest(BaseModel):
 
 
 
-class ModelRecommendationRequest(BaseModel):
+class ModelRecommendationRequest(TektonBaseModel):
     """Request model for getting model recommendations."""
     provider: str = Field(..., description="Current provider")
     model: str = Field(..., description="Current model")
@@ -255,7 +256,7 @@ class ModelRecommendationRequest(BaseModel):
 
 
 
-class PriceRequest(BaseModel):
+class PriceRequest(TektonBaseModel):
     """Request model for getting current price."""
     provider: str = Field(..., description="Provider name")
     model: str = Field(..., description="Model name")
@@ -272,7 +273,7 @@ class PriceRequest(BaseModel):
 
 # Response Models
 
-class BudgetResponse(BaseModel):
+class BudgetResponse(TektonBaseModel):
     """Response model for budget."""
     budget_id: str = Field(..., description="Budget ID")
     name: str = Field(..., description="Budget name")
@@ -284,7 +285,7 @@ class BudgetResponse(BaseModel):
     is_active: bool = Field(True, description="Active status")
     metadata: Dict[str, Any] = Field({}, description="Additional metadata")
 
-class PolicyResponse(BaseModel):
+class PolicyResponse(TektonBaseModel):
     """Response model for budget policy."""
     policy_id: str = Field(..., description="Policy ID")
     budget_id: Optional[str] = Field(None, description="Budget ID")
@@ -303,7 +304,7 @@ class PolicyResponse(BaseModel):
     enabled: bool = Field(..., description="Whether policy is enabled")
     metadata: Dict[str, Any] = Field({}, description="Additional metadata")
 
-class AllocationResponse(BaseModel):
+class AllocationResponse(TektonBaseModel):
     """Response model for budget allocation."""
     allocation_id: str = Field(..., description="Allocation ID")
     budget_id: Optional[str] = Field(None, description="Budget ID")
@@ -328,7 +329,7 @@ class AllocationResponse(BaseModel):
     remaining_tokens: int = Field(..., description="Number of remaining tokens")
     usage_percentage: float = Field(..., description="Percentage of allocation used")
 
-class UsageRecordResponse(BaseModel):
+class UsageRecordResponse(TektonBaseModel):
     """Response model for usage record."""
     record_id: str = Field(..., description="Record ID")
     allocation_id: Optional[str] = Field(None, description="Allocation ID")
@@ -350,7 +351,7 @@ class UsageRecordResponse(BaseModel):
     user_id: Optional[str] = Field(None, description="User ID")
     metadata: Dict[str, Any] = Field({}, description="Additional metadata")
 
-class UsageSummaryResponse(BaseModel):
+class UsageSummaryResponse(TektonBaseModel):
     """Response model for usage summary."""
     period: str = Field(..., description="Budget period")
     total_input_tokens: int = Field(..., description="Total input tokens")
@@ -362,7 +363,7 @@ class UsageSummaryResponse(BaseModel):
     end_time: Optional[str] = Field(None, description="End time")
     groups: Dict[str, Dict[str, Dict[str, Any]]] = Field(..., description="Grouped summary data")
 
-class BudgetSummaryResponse(BaseModel):
+class BudgetSummaryResponse(TektonBaseModel):
     """Response model for budget summary."""
     budget_id: Optional[str] = Field(None, description="Budget ID")
     period: str = Field(..., description="Budget period")
@@ -385,7 +386,7 @@ class BudgetSummaryResponse(BaseModel):
     token_limit_exceeded: bool = Field(..., description="Whether token limit is exceeded")
     cost_limit_exceeded: bool = Field(..., description="Whether cost limit is exceeded")
 
-class AlertResponse(BaseModel):
+class AlertResponse(TektonBaseModel):
     """Response model for alert."""
     alert_id: str = Field(..., description="Alert ID")
     budget_id: Optional[str] = Field(None, description="Budget ID")
@@ -399,7 +400,7 @@ class AlertResponse(BaseModel):
     acknowledged_by: Optional[str] = Field(None, description="User who acknowledged")
     acknowledged_at: Optional[datetime] = Field(None, description="Acknowledgement timestamp")
 
-class PriceResponse(BaseModel):
+class PriceResponse(TektonBaseModel):
     """Response model for price information."""
     pricing_id: str = Field(..., description="Pricing ID")
     provider: str = Field(..., description="Provider name")
@@ -420,7 +421,7 @@ class PriceResponse(BaseModel):
     end_date: Optional[datetime] = Field(None, description="End date")
     metadata: Dict[str, Any] = Field({}, description="Additional metadata")
 
-class ModelRecommendationResponse(BaseModel):
+class ModelRecommendationResponse(TektonBaseModel):
     """Response model for model recommendation."""
     provider: str = Field(..., description="Provider name")
     model: str = Field(..., description="Model name")
@@ -430,55 +431,55 @@ class ModelRecommendationResponse(BaseModel):
     input_cost_per_token: float = Field(..., description="Input cost per token")
     output_cost_per_token: float = Field(..., description="Output cost per token")
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(TektonBaseModel):
     """Response model for errors."""
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(None, description="Error details")
     code: Optional[str] = Field(None, description="Error code")
 
-class SuccessResponse(BaseModel):
+class SuccessResponse(TektonBaseModel):
     """Response model for success messages."""
     message: str = Field(..., description="Success message")
     data: Optional[Dict[str, Any]] = Field(None, description="Additional data")
 
 # List Response Models
 
-class BudgetListResponse(BaseModel):
+class BudgetListResponse(TektonBaseModel):
     """Response model for budget list."""
     items: List[BudgetResponse] = Field(..., description="List of budgets")
     total: int = Field(..., description="Total number of budgets")
     page: int = Field(1, description="Current page")
     limit: int = Field(20, description="Items per page")
 
-class PolicyListResponse(BaseModel):
+class PolicyListResponse(TektonBaseModel):
     """Response model for policy list."""
     items: List[PolicyResponse] = Field(..., description="List of policies")
     total: int = Field(..., description="Total number of policies")
     page: int = Field(1, description="Current page")
     limit: int = Field(20, description="Items per page")
 
-class AllocationListResponse(BaseModel):
+class AllocationListResponse(TektonBaseModel):
     """Response model for allocation list."""
     items: List[AllocationResponse] = Field(..., description="List of allocations")
     total: int = Field(..., description="Total number of allocations")
     page: int = Field(1, description="Current page")
     limit: int = Field(20, description="Items per page")
 
-class UsageRecordListResponse(BaseModel):
+class UsageRecordListResponse(TektonBaseModel):
     """Response model for usage record list."""
     items: List[UsageRecordResponse] = Field(..., description="List of usage records")
     total: int = Field(..., description="Total number of records")
     page: int = Field(1, description="Current page")
     limit: int = Field(20, description="Items per page")
 
-class AlertListResponse(BaseModel):
+class AlertListResponse(TektonBaseModel):
     """Response model for alert list."""
     items: List[AlertResponse] = Field(..., description="List of alerts")
     total: int = Field(..., description="Total number of alerts")
     page: int = Field(1, description="Current page")
     limit: int = Field(20, description="Items per page")
 
-class ModelRecommendationListResponse(BaseModel):
+class ModelRecommendationListResponse(TektonBaseModel):
     """Response model for model recommendation list."""
     items: List[ModelRecommendationResponse] = Field(..., description="List of recommendations")
     current_model: str = Field(..., description="Current model")

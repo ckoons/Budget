@@ -43,7 +43,7 @@ fi
 
 # Start the Budget service
 echo -e "${YELLOW}Starting Budget API server on port $BUDGET_PORT...${RESET}"
-python -m budget.api.app > "$HOME/.tekton/logs/budget.log" 2>&1 &
+python -m budget > "$HOME/.tekton/logs/budget.log" 2>&1 &
 BUDGET_PID=$!
 
 # Trap signals for graceful shutdown
