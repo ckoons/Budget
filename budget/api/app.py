@@ -198,12 +198,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add shutdown endpoint
-try:
-    from shared.utils.shutdown_endpoint import add_shutdown_endpoint_to_app
-    add_shutdown_endpoint_to_app(app, "budget")
-except ImportError:
-    logger.warning("Shutdown endpoint module not available")
 
 # Add exception handlers
 @app.exception_handler(Exception)
