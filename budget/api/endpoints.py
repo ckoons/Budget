@@ -73,7 +73,7 @@ from budget.api.dependencies import (
 )
 
 # Create API routers following Single Port Architecture pattern
-router = APIRouter(prefix="/api", tags=["Budget"])
+router = APIRouter(tags=["Budget"])
 budget_router = APIRouter(prefix="/budgets", tags=["Budget Management"])
 policy_router = APIRouter(prefix="/policies", tags=["Budget Policies"])
 allocation_router = APIRouter(prefix="/allocations", tags=["Budget Allocations"])

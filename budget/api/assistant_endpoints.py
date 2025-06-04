@@ -39,7 +39,7 @@ from budget.data.models import BudgetPeriod, BudgetTier
 from budget.service.assistant import create_budget_assistant
 
 # API Router
-router = APIRouter(prefix="/api/assistant", tags=["assistant"])
+router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 # Request and Response Models
 class AnalysisRequest(BaseModel):
