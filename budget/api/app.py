@@ -81,6 +81,7 @@ start_time = None
 is_registered_with_hermes = False
 hermes_registration = None
 heartbeat_task = None
+mcp_bridge = None
 
 # Import WebSocket manager and handlers
 from budget.api.websocket_server import (
@@ -118,13 +119,20 @@ async def startup_tasks():
         from budget.core.mcp import register_budget_tools, register_analytics_tools
         
         # Create tool registry
-        tool_registry = ToolRegistry()
+        tool_registry = ToolRegistry(component_name=COMPONENT_NAME)
         
         # Register budget tools with the registry
         await register_budget_tools(budget_engine, tool_registry)
         await register_analytics_tools(budget_engine, tool_registry)
         
         logger.info("Successfully registered FastMCP tools")
+        
+        # Initialize Hermes MCP Bridge
+        from budget.core.mcp.hermes_bridge import BudgetMCPBridge
+        global mcp_bridge
+        mcp_bridge = BudgetMCPBridge(budget_engine)
+        await mcp_bridge.initialize()
+        logger.info("Initialized Hermes MCP Bridge for FastMCP tools")
     except ImportError:
         logger.warning("FastMCP not available, continuing with legacy MCP")
     except Exception as e:
@@ -181,6 +189,15 @@ async def cleanup_tasks():
     # Clean up WebSocket connections
     ws_manager.cleanup()
     logger.info("WebSocket connections cleaned up")
+    
+    # Clean up MCP bridge
+    global mcp_bridge
+    if mcp_bridge:
+        try:
+            await mcp_bridge.shutdown()
+            logger.info("MCP bridge cleaned up")
+        except Exception as e:
+            logger.warning(f"Error cleaning up MCP bridge: {e}")
     
     # Close database connections
     db_manager.close()

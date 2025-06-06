@@ -715,17 +715,17 @@ def get_all_tools(budget_engine_instance=None):
     tools = []
     
     # Budget management tools
-    tools.append(MCPTool.from_dict(allocate_budget._mcp_tool_meta.to_dict()))
-    tools.append(MCPTool.from_dict(check_budget._mcp_tool_meta.to_dict()))
-    tools.append(MCPTool.from_dict(record_usage._mcp_tool_meta.to_dict()))
-    tools.append(MCPTool.from_dict(get_budget_status._mcp_tool_meta.to_dict()))
+    tools.append(allocate_budget._mcp_tool_meta.to_dict())
+    tools.append(check_budget._mcp_tool_meta.to_dict())
+    tools.append(record_usage._mcp_tool_meta.to_dict())
+    tools.append(get_budget_status._mcp_tool_meta.to_dict())
     
     # Model recommendation tools
-    tools.append(MCPTool.from_dict(get_model_recommendations._mcp_tool_meta.to_dict()))
-    tools.append(MCPTool.from_dict(route_with_budget_awareness._mcp_tool_meta.to_dict()))
+    tools.append(get_model_recommendations._mcp_tool_meta.to_dict())
+    tools.append(route_with_budget_awareness._mcp_tool_meta.to_dict())
     
     # Analytics tools
-    tools.append(MCPTool.from_dict(get_usage_analytics._mcp_tool_meta.to_dict()))
+    tools.append(get_usage_analytics._mcp_tool_meta.to_dict())
     
     return tools
 
