@@ -103,7 +103,8 @@ async def startup_tasks():
         port = config.budget.port
         hostname = os.environ.get("BUDGET_HOST", "localhost")
     else:
-        port = int(os.environ.get("BUDGET_PORT", "8013"))
+        config = get_component_config()
+        port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
         hostname = os.environ.get("BUDGET_HOST", "localhost")
     
     endpoint = f"http://{hostname}:{port}"
@@ -343,7 +344,8 @@ if not component_lifespan:
         db_manager.initialize()
     
     # Construct the endpoint URL based on the port
-    port = os.environ.get("BUDGET_PORT", "8013")
+    config = get_component_config()
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
     hostname = os.environ.get("BUDGET_HOST", "localhost")
     endpoint = f"http://{hostname}:{port}"
     
@@ -456,7 +458,8 @@ if __name__ == "__main__":
     import uvicorn
     
     # Use the standardized BUDGET_PORT environment variable from Single Port Architecture
-    port = int(os.environ.get("BUDGET_PORT", "8013"))
+    config = get_component_config()
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
     
     uvicorn.run(
         "budget.api.app:app",

@@ -78,7 +78,8 @@ async def startup_tasks():
     db_manager.initialize()
     
     # Construct the endpoint URL based on the port
-    port = os.environ.get("BUDGET_PORT", "8013")
+    config = get_component_config()
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
     hostname = os.environ.get("BUDGET_HOST", "localhost")
     endpoint = f"http://{hostname}:{port}"
     
@@ -288,7 +289,8 @@ hermes_client = None
     db_manager.initialize()
     
     # Construct the endpoint URL based on the port
-    port = os.environ.get("BUDGET_PORT", "8013")
+    config = get_component_config()
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
     hostname = os.environ.get("BUDGET_HOST", "localhost")
     endpoint = f"http://{hostname}:{port}"
     
@@ -399,7 +401,7 @@ if __name__ == "__main__":
     
     # Get configuration
     config = get_component_config()
-    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT", "8013"))
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
     
     # Configure uvicorn with socket reuse
     uvicorn.run(

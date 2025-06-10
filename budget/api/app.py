@@ -105,7 +105,7 @@ async def startup_tasks():
     
     # Get configuration
     config = get_component_config()
-    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT", 8013))
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
     
     # Initialize WebSocket routes
     from budget.core.engine import get_budget_engine
@@ -345,9 +345,12 @@ app.include_router(mcp_router)
 if __name__ == "__main__":
     from shared.utils.socket_server import run_component_server
     
+    config = get_component_config()
+    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
+    
     run_component_server(
         component_name="budget",
         app_module="budget.api.app",
-        default_port=int(os.environ.get("BUDGET_PORT")),
+        default_port=port,
         reload=False
     )
