@@ -74,15 +74,11 @@ from budget.utils.hermes_helper import register_budget_component
 # Configure logging using shared utility
 logger = setup_component_logging("budget")
 
-# Component configuration
-COMPONENT_NAME = "budget"
-COMPONENT_VERSION = "0.1.0"
-COMPONENT_DESCRIPTION = "Budget management and cost tracking component"
-start_time = None
-is_registered_with_hermes = False
-hermes_registration = None
-heartbeat_task = None
-mcp_bridge = None
+# Import budget component
+from budget.core.budget_component import BudgetComponent
+
+# Create component singleton
+budget_component = BudgetComponent()
 
 # Import WebSocket manager and handlers
 from budget.api.websocket_server import (
@@ -90,156 +86,52 @@ from budget.api.websocket_server import (
     notify_budget_update, notify_allocation_update, notify_alert, notify_price_update
 )
 
-# Create WebSocket connection manager
-ws_manager = ConnectionManager()
+# WebSocket manager will be accessed through component
 
-# Create lifespan context manager
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Lifespan manager for Budget component."""
-    global is_registered_with_hermes, hermes_registration, heartbeat_task, start_time, mcp_bridge
+async def startup_callback():
+    """Initialize Budget component (includes Hermes registration)."""
+    # Initialize component (includes Hermes registration)
+    await budget_component.initialize(
+        capabilities=budget_component.get_capabilities(),
+        metadata=budget_component.get_metadata()
+    )
     
-    # Define startup function
-    async def budget_startup():
-        """Initialize Budget services."""
-        global is_registered_with_hermes, hermes_registration, heartbeat_task, start_time, mcp_bridge
-        import time
-        start_time = time.time()
-        logger.info("Initializing Budget API server")
-        
-        # Initialize database
-        db_manager.initialize()
-        
-        # Get configuration
-        config = get_component_config()
-        port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
-        
-        # Initialize WebSocket routes
-        from budget.core.engine import get_budget_engine
-        budget_engine = get_budget_engine()
-        add_websocket_routes(app, ws_manager, budget_engine)
-        
-        # Initialize FastMCP if available
-        try:
-            from tekton.mcp.fastmcp import MCPClient
-            from tekton.mcp.fastmcp.utils.tooling import ToolRegistry
-            from budget.core.mcp import register_budget_tools, register_analytics_tools
-            
-            # Create tool registry
-            tool_registry = ToolRegistry(component_name=COMPONENT_NAME)
-            
-            # Register budget tools with the registry
-            await register_budget_tools(budget_engine, tool_registry)
-            await register_analytics_tools(budget_engine, tool_registry)
-            
-            logger.info("Successfully registered FastMCP tools")
-            
-            # Initialize Hermes MCP Bridge
-            from budget.core.mcp.hermes_bridge import BudgetMCPBridge
-            mcp_bridge = BudgetMCPBridge(budget_engine)
-            await mcp_bridge.initialize()
-            logger.info("Initialized Hermes MCP Bridge for FastMCP tools")
-        except ImportError:
-            logger.warning("FastMCP not available, continuing with legacy MCP")
-        except Exception as e:
-            logger.error(f"Error registering FastMCP tools: {str(e)}")
-        
-        # Register with Hermes using standardized registration
-        hermes_registration = HermesRegistration()
-        logger.info(f"Attempting to register Budget with Hermes on port {port}")
-        is_registered_with_hermes = await hermes_registration.register_component(
-            component_name=COMPONENT_NAME,
-            port=port,
-            version=COMPONENT_VERSION,
-            capabilities=[
-                "budget_allocation",
-                "cost_tracking",
-                "usage_monitoring",
-                "assistant_service",
-                "websocket_support"
-            ],
-            metadata={
-                "database": "enabled",
-                "assistant": "enabled",
-                "websocket": "enabled"
-            }
-        )
-        
-        # Start heartbeat task if registered
-        if is_registered_with_hermes:
-            heartbeat_task = asyncio.create_task(
-                heartbeat_loop(hermes_registration, COMPONENT_NAME, interval=30)
-            )
-            logger.info("Started Hermes heartbeat task")
-        
-        logger.info("Budget API server initialized with WebSocket support")
-    
-    # Execute startup with metrics
+    # Component-specific MCP bridge initialization
     try:
-        metrics = await component_startup(COMPONENT_NAME, budget_startup, timeout=30)
-        logger.info(f"Budget started successfully in {metrics.total_time:.2f}s")
-    except Exception as e:
-        logger.error(f"Failed to start Budget: {e}")
-        raise
-    
-    # Create shutdown handler
-    shutdown = GracefulShutdown(COMPONENT_NAME)
-    
-    # Register cleanup tasks
-    async def cleanup_hermes():
-        """Cleanup Hermes registration."""
-        if heartbeat_task:
-            heartbeat_task.cancel()
-            try:
-                await heartbeat_task
-            except asyncio.CancelledError:
-                pass
+        from tekton.mcp.fastmcp import MCPClient
+        from tekton.mcp.fastmcp.utils.tooling import ToolRegistry
+        from budget.core.mcp import register_budget_tools, register_analytics_tools
         
-        if hermes_registration and is_registered_with_hermes:
-            await hermes_registration.deregister(COMPONENT_NAME)
-            logger.info("Deregistered from Hermes")
+        # Create tool registry
+        tool_registry = ToolRegistry(component_name="budget")
+        
+        # Register budget tools with the registry
+        await register_budget_tools(budget_component.budget_engine, tool_registry)
+        await register_analytics_tools(budget_component.budget_engine, tool_registry)
+        
+        logger.info("Successfully registered FastMCP tools")
+        
+        # Initialize Hermes MCP Bridge
+        from budget.core.mcp.hermes_bridge import BudgetMCPBridge
+        budget_component.mcp_bridge = BudgetMCPBridge(budget_component.budget_engine)
+        await budget_component.mcp_bridge.initialize()
+        logger.info("Initialized Hermes MCP Bridge for FastMCP tools")
+    except ImportError:
+        logger.warning("FastMCP not available, continuing with legacy MCP")
+    except Exception as e:
+        logger.error(f"Error registering FastMCP tools: {str(e)}")
     
-    async def cleanup_websockets():
-        """Cleanup WebSocket connections."""
-        ws_manager.cleanup()
-        logger.info("WebSocket connections cleaned up")
-    
-    async def cleanup_mcp_bridge():
-        """Cleanup MCP bridge."""
-        if mcp_bridge:
-            try:
-                await mcp_bridge.shutdown()
-                logger.info("MCP bridge cleaned up")
-            except Exception as e:
-                logger.warning(f"Error cleaning up MCP bridge: {e}")
-    
-    async def cleanup_database():
-        """Cleanup database connections."""
-        db_manager.close()
-        logger.info("Database connections closed")
-    
-    shutdown.register_cleanup(cleanup_hermes)
-    shutdown.register_cleanup(cleanup_websockets)
-    shutdown.register_cleanup(cleanup_mcp_bridge)
-    shutdown.register_cleanup(cleanup_database)
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down Budget API")
-    await shutdown.shutdown_sequence(timeout=10)
-    
-    # Socket release delay for macOS
-    await asyncio.sleep(0.5)
+    # Initialize WebSocket routes
+    add_websocket_routes(app, budget_component.connection_manager, budget_component.budget_engine)
 
-# Create FastAPI app with proper URL paths following Single Port Architecture
-app = FastAPI(
+# Create FastAPI app using component
+app = budget_component.create_app(
+    startup_callback=startup_callback,
     **get_openapi_configuration(
-        component_name=COMPONENT_NAME,
-        component_version=COMPONENT_VERSION,
-        component_description=COMPONENT_DESCRIPTION
-    ),
-    lifespan=lifespan
+        component_name="budget",
+        component_version="0.1.0",
+        component_description="Budget management and cost tracking component"
+    )
 )
 
 # Add CORS middleware
@@ -252,7 +144,7 @@ app.add_middleware(
 )
 
 # Create standard routers
-routers = create_standard_routers(COMPONENT_NAME)
+routers = create_standard_routers("budget")
 
 # Add exception handlers
 @app.exception_handler(Exception)
@@ -283,11 +175,11 @@ async def health_check():
     
     # Use standardized health response
     return create_health_response(
-        component_name=COMPONENT_NAME,
+        component_name="budget",
         port=8013,
-        version=COMPONENT_VERSION,
+        version="0.1.0",
         status="healthy",
-        registered=is_registered_with_hermes,
+        registered=budget_component.global_config.is_registered_with_hermes,
         details={
             "services": ["budget_allocation", "cost_tracking", "assistant_service"]
         }
@@ -301,9 +193,9 @@ async def root():
     """
     debug_log.info("budget_api", "Root endpoint called")
     return {
-        "component": COMPONENT_NAME,
-        "description": COMPONENT_DESCRIPTION,
-        "version": COMPONENT_VERSION,
+        "component": "budget",
+        "description": "Budget management and cost tracking component",
+        "version": "0.1.0",
         "status": "active"
     }
 
@@ -311,10 +203,10 @@ async def root():
 routers.root.add_api_route(
     "/ready",
     create_ready_endpoint(
-        component_name=COMPONENT_NAME,
-        component_version=COMPONENT_VERSION,
-        start_time=start_time or 0,
-        readiness_check=lambda: is_registered_with_hermes
+        component_name="budget",
+        component_version="0.1.0",
+        start_time=budget_component.global_config._start_time,
+        readiness_check=lambda: budget_component.global_config.is_registered_with_hermes
     ),
     methods=["GET"]
 )
@@ -323,9 +215,9 @@ routers.root.add_api_route(
 routers.v1.add_api_route(
     "/discovery",
     create_discovery_endpoint(
-        component_name=COMPONENT_NAME,
-        component_version=COMPONENT_VERSION,
-        component_description=COMPONENT_DESCRIPTION,
+        component_name="budget",
+        component_version="0.1.0",
+        component_description="Budget management and cost tracking component",
         endpoints=[
             EndpointInfo(path="/api/v1/budgets", method="*", description="Budget management"),
             EndpointInfo(path="/api/v1/policies", method="*", description="Budget policies"),
@@ -335,22 +227,11 @@ routers.v1.add_api_route(
             EndpointInfo(path="/api/v1/prices", method="GET", description="Pricing information"),
             EndpointInfo(path="/api/v1/assistant", method="POST", description="LLM assistant")
         ],
-        capabilities=[
-            "budget_allocation",
-            "cost_tracking",
-            "usage_monitoring",
-            "assistant_service",
-            "websocket_support"
-        ],
+        capabilities=budget_component.get_capabilities(),
         dependencies={
             "hermes": "http://localhost:8001"
         },
-        metadata={
-            "documentation": "/api/v1/docs",
-            "database": "enabled",
-            "assistant": "enabled",
-            "websocket": "enabled"
-        }
+        metadata=budget_component.get_metadata()
     ),
     methods=["GET"]
 )
@@ -365,15 +246,19 @@ routers.v1.include_router(assistant_router)
 # Include MCP router at root (not under v1)
 app.include_router(mcp_router)
 
+# Store component in app state for access by endpoints
+app.state.component = budget_component
+
 if __name__ == "__main__":
     from shared.utils.socket_server import run_component_server
+    from shared.utils.global_config import GlobalConfig
     
-    config = get_component_config()
-    port = config.budget.port if hasattr(config, 'budget') else int(os.environ.get("BUDGET_PORT"))
+    global_config = GlobalConfig.get_instance()
+    default_port = global_config.config.budget.port
     
     run_component_server(
         component_name="budget",
         app_module="budget.api.app",
-        default_port=port,
+        default_port=default_port,
         reload=False
     )
